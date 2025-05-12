@@ -36,14 +36,7 @@ with pm.Model() as model:
     X_obs = pm.Bernoulli("X_obs", p=p, observed=X)
 
     #sample from posterior
-    trace = pm.sample(
-        draws = 2000, #samples/chain
-        tune=1000, #warmup
-        chains = 4, #num of MCMC chains
-        cores = 4, #parallel CPU cores
-        target_accept=0.9, #stability in complex models
-        return_inferencedata= True #compatibility w ArviZ
-        )
+    trace = pm.sample(draws = 2000, tune=1000, chains = 4, cores = 4, target_accept=0.9, return_inferencedata= True )
 
 #create and display summary
 az_summary = az.summary(trace, hdi_prob=0.95)
@@ -56,20 +49,27 @@ least_competent = competence_means.idxmin()
 print(f"Most competent informant: {most_competent} (mean competence: {competence_means[most_competent]:.3f})")
 print(f"Least competent informant: {least_competent} (mean competence: {competence_means[least_competent]:.3f})")
 
-#plot posterior for D
-posterior = trace.posterior["D"]
-n_informants = posterior.shape[1]
-samples = posterior.stack(samples=("chain", "draw"))
-plt.figure(figsize=(10, 6))
-for i in range(n_informants):
-    sns.kdeplot(samples[:,i].values, label=f'Inf P{i+1}', linewidth=1.5)
+# plotting posterior for d
+d_summary = az.summary(trace, var_names=["D"], hdi_prob=0.94)
+means_d = d_summary['mean'].values
+hdi_lower_d = d_summary['hdi_3%'].values
+hdi_upper_d = d_summary['hdi_97%'].values
+informants = [f"Inf {i+1}" for i in range(len(means_d))]
+yerr_lower_d = np.clip(means_d - hdi_lower_d, 0, None)
+yerr_upper_d = np.clip(hdi_upper_d - means_d, 0, None)
 
-plt.xlabel("Competence (D)")
-plt.title("Posterior Distributions of Informant Competence")
-plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')  # Move legend outside
+plt.figure(figsize=(10, 5))
+plt.errorbar(informants, means_d, yerr=[yerr_lower_d, yerr_upper_d],
+             fmt='o', capsize=5, label='Posterior Mean ± 94% HDI')
+
+plt.axhline(0.5, color='gray', linestyle='--', linewidth=1, label='Chance Level (0.5)')
+plt.xticks(rotation=45)
+plt.ylim(0.45, 1.05)
+plt.ylabel("Competence (D)")
+plt.title("Posterior Estimates of Informant Competence")
+plt.legend()
 plt.tight_layout()
 plt.show()
-
 
 # plotting posterior for z
 z_summary = az.summary(trace, var_names=["Z"], hdi_prob=0.94)
@@ -94,20 +94,17 @@ plt.legend()
 plt.tight_layout()
 plt.show()
 
-#naive mean
+#Comparison between naive and CCT answers
 naive_means = X.mean(axis=0)
 naive_answers = (naive_means >= 0.5).astype(int)
-print("Naive Majority Vote Answer Key:")
-print(naive_answers)
 
 z_summary = az.summary(trace, var_names=["Z"])
 cct_means = z_summary["mean"]
 cct_answers = (cct_means >= 0.5).astype(int)
-print("CCT Model Consensus Answer Key:")
-print(cct_answers)
 
+question_labels = [f"Q{j+1}" for j in range(20)]
 comparison = pd.DataFrame({
-    "Question": X.columns,
+    "Question": question_labels,
     "Naive": naive_answers,
     "CCT": cct_answers,
     "Same?": naive_answers == cct_answers
