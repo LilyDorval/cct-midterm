@@ -1,3 +1,25 @@
+#CCT Midterm
+#Lily Dorval
+#Cogs 107 
+#Professor Joachim Vandekerckhove
+
+#Report
+
+#The model defines D as a variable representing each informants competence, the probability that they know the correct answer
+#Each D[i] is drawn from a uniform prior between 0.5 and 1.0, where 0.5 is random chancea and 1.0 is perfect competencce.
+#Z[j] is the latent consensus, or "true" answers for each question j.
+#Each Z[j] is modeled as a Bernoulli trial with a 50% prior for being "true"
+#A matrix p[i,j], the probability that informant i gives a "yes" response for item j is created.
+#This encodes an assumption of CCT, that informants agree with consensus in proportion to their competence.
+#X_obs is the likelihood that the matrix X (observed data) is modeled as Bernoulli with the probability matrix p.
+# 2000 samples are drawn per chain after 1000 tuning steps.
+#With relative consistency, informant D[5] is identified as the most competent and D[2] as the least competent.
+#Note that these are indices, so these are informants 6 and 3, not 5 and 2.
+#Convergence is always good, with uniform 1.0 r_hat for all Z[j] and D[i]
+#The naive and CCT Item answers are similar but not identical.
+#All proposed answers are the same in both models except for Questions 2, 13, 14 and 15.
+
+
 import pandas as pd
 import numpy as np
 import pymc as pm
@@ -43,7 +65,8 @@ az_summary = az.summary(trace, hdi_prob=0.95)
 print(az_summary)
 
 #most and least competent informant
-competence_means = az_summary['mean']
+competence_summary = az_summary[az_summary.index.str.startswith("D[")]
+competence_means = competence_summary['mean']
 most_competent = competence_means.idxmax()
 least_competent = competence_means.idxmin()
 print(f"Most competent informant: {most_competent} (mean competence: {competence_means[most_competent]:.3f})")
